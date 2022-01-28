@@ -7,6 +7,7 @@ key=$(cat key.txt)
 BCT="bct.bin"
 Bootloader="bootloader.bin"
 output_dir="./encrypted"
+encrypt=1
 
 ########## U-Boot ##############
 # set bootloader load address
@@ -45,8 +46,15 @@ while [ $((bootloaderLength%16)) -ne 0 ]; do
 	bootloaderLength=$(stat --printf="%s" $output_dir/tmp_bootloader.bin)
 done
 
-# encrypt bootloader
-openssl aes-128-cbc -e -K $key -iv 00000000000000000000000000000000 -nopad -nosalt -in $output_dir/tmp_bootloader.bin -out $output_dir/tmp_bootloader_enc.bin
+
+if [ $encrypt -eq 1 ]; then
+        # encrypt bootloader
+        openssl aes-128-cbc -e -K $key -iv 00000000000000000000000000000000 -nopad -nosalt -in $output_dir/tmp_bootloader.bin -out $output_dir/tmp_bootloader_enc.bin
+else
+	# do not encrypt bootloader
+	cp $output_dir/tmp_bootloader.bin $output_dir/tmp_bootloader_enc.bin
+fi
+
 
 # calc hash of encrypted bootloader
 bootloaderHash=$(openssl dgst -mac cmac -macopt cipher:aes-128-cbc -macopt hexkey:$key $output_dir/tmp_bootloader_enc.bin | cut -d' ' -f2)
@@ -80,8 +88,14 @@ dd conv=notrunc of=$output_dir/tmp_bootloader_block.bin if=$output_dir/tmp_bootl
 # remove HASH from BCT
 dd if=$output_dir/tmp_bct.bin of=$output_dir/tmp_bct_trimmed.bin bs=1 skip=16
 
-# encrypt BCT
-openssl aes-128-cbc -e -K $key -iv 00000000000000000000000000000000 -nopad -nosalt -in $output_dir/tmp_bct_trimmed.bin -out $output_dir/tmp_bct_trimmed_enc.bin
+
+if [ $encrypt -eq 1 ]; then
+        # encrypt BCT
+	openssl aes-128-cbc -e -K $key -iv 00000000000000000000000000000000 -nopad -nosalt -in $output_dir/tmp_bct_trimmed.bin -out $output_dir/tmp_bct_trimmed_enc.bin
+else
+	# do not encrypt bootloader
+	cp $output_dir/tmp_bct_trimmed.bin $output_dir/tmp_bct_trimmed_enc.bin
+fi
 
 # hash encrypted BCT
 BCT_hash=$(openssl dgst -mac cmac -macopt cipher:aes-128-cbc -macopt hexkey:$key $output_dir/tmp_bct_trimmed_enc.bin | cut -d' ' -f2)
